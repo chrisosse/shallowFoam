@@ -9,7 +9,7 @@ FoamFile
 
 preciceConfig "../precice-config.xml";
 
-participant damleft;
+participant Test1;
 
 modules (FF);
 
@@ -17,21 +17,17 @@ interfaces
 {
   Interface1
   {
-    mesh              damleft-Mesh;
-    patches           (rightWall);
+    mesh              Test1_Mesh;
+    patches           (right);
     
     readData
     (
-      VelocityGradient
-      Prgh
-      Alpha
     );
     
     writeData
     (
-      Velocity
-      PrghGradient
-      AlphaGradient
+      FlowDepth
+      Discharges
     );
   };
 };

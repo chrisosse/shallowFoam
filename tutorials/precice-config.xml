@@ -7,12 +7,12 @@
     <data:vector name="FlowDepth"/>
     <data:scalar name="Discharge"/>
 
-    <mesh name="damleft-Mesh">
+    <mesh name="Test1-Mesh">
         <use-data name="FlowDepth"/>
         <use-data name="Discharge"/>   
     </mesh>
 
-    <mesh name="damright-Mesh">
+    <mesh name="Test2-Mesh">
         <use-data name="FlowDepth"/>
         <use-data name="Discharge"/>
     </mesh>
@@ -20,62 +20,28 @@
     <participant name="Test1">
         <use-mesh name="Test1-Mesh" provide="yes"/>
         <use-mesh name="Test2-Mesh" from="Test2"/>
-        <read-data name="VelocityGradient" mesh="Test1-Mesh"/>
-        <read-data name="Prgh" mesh="damleft-Mesh"/>
-        <read-data name="Alpha" mesh="damleft-Mesh"/>
-        <write-data name="Velocity" mesh="damleft-Mesh"/>
-        <write-data name="PrghGradient" mesh="damleft-Mesh"/>
-        <write-data name="AlphaGradient" mesh="damleft-Mesh"/>
-	<mapping:nearest-neighbor direction="read" from="damright-Mesh" to="damleft-Mesh" 		constraint="consistent" />
+        <write-data name="FlowDepth" mesh="Test1-Mesh"/>
+        <write-data name="Discharge" mesh="Test1-Mesh"/>
+	<mapping:nearest-neighbor direction="read" from="Test2-Mesh" to="Test1-Mesh" 		constraint="consistent" />
     </participant>
 
-    <participant name="damright">
-        <use-mesh name="damright-Mesh" provide="yes"/>
-        <use-mesh name="damleft-Mesh" from="damleft"/>
-        <write-data name="VelocityGradient" mesh="damright-Mesh"/>
-        <write-data name="Prgh" mesh="damright-Mesh"/>
-        <write-data name="Alpha" mesh="damright-Mesh"/>
-        <read-data name="Velocity" mesh="damright-Mesh"/>
-        <read-data name="PrghGradient" mesh="damright-Mesh"/>
-        <read-data name="AlphaGradient" mesh="damright-Mesh"/>
-	<mapping:nearest-neighbor direction="read" from="damleft-Mesh" to="damright-Mesh" constraint="consistent" />
+    <participant name="Test2">
+        <use-mesh name="Test2-Mesh" provide="yes"/>
+        <use-mesh name="Test1-Mesh" from="Test2"/>
+        <read-data name="FlowDepth" mesh="Test2-Mesh"/>
+        <read-data name="Discharge" mesh="Test2-Mesh"/>
+	<mapping:nearest-neighbor direction="read" from="Test1-Mesh" to="Test2-Mesh" 		constraint="consistent" />
     </participant>
 
-    <m2n:sockets from="damleft" to="damright" exchange-directory=".." />
+    <m2n:sockets from="Test1" to="Test2" exchange-directory=".." />
 
-    <coupling-scheme:parallel-implicit>
+    <coupling-scheme:serial-explicit>
         <time-window-size value="0.1"/>
         <max-time value="1.0"/>
-        <max-iterations value="50"/>
-        <participants first="damleft" second="damright"/>
-        <exchange data="VelocityGradient" mesh="damright-Mesh" from="damright" to="damleft"/>
-        <exchange data="Prgh" mesh="damright-Mesh" from="damright" to="damleft"/>
-        <exchange data="Alpha" mesh="damright-Mesh" from="damright" to="damleft"/>
-    	<exchange data="Velocity" mesh="damleft-Mesh" from="damleft" to="damright"/>
-        <exchange data="PrghGradient" mesh="damleft-Mesh" from="damleft" to="damright"/>
-        <exchange data="AlphaGradient" mesh="damleft-Mesh" from="damleft" to="damright"/>
-
-
-        <relative-convergence-measure limit="1.0e-4" data="Prgh" mesh="damright-Mesh"/>
-
-        <relative-convergence-measure limit="1.0e-4" data="Velocity" mesh="damleft-Mesh"/>
-
-
-        <extrapolation-order value="2"/>
-        <acceleration:IQN-ILS>
-            <data mesh="damright-Mesh" name="VelocityGradient" />
-            <data mesh="damright-Mesh" name="Prgh" />
-            <data mesh="damright-Mesh" name="Alpha" />
-            <data mesh="damleft-Mesh" name="Velocity" />
-            <data mesh="damleft-Mesh" name="PrghGradient" />
-            <data mesh="damleft-Mesh" name="AlphaGradient" />
-              <preconditioner type="residual-sum"/>
-            <initial-relaxation value="0.1" />
-            <max-used-iterations value="5" />
-            <time-windows-reused value="2" />
-            <filter type="QR1" limit="1e-5" />
-        </acceleration:IQN-ILS>
-    </coupling-scheme:parallel-implicit>
+        <participants first="Test1" second="Test2"/>
+        <exchange data="FlowDepth" mesh="Test2-Mesh" from="Test1" to="Test2"/>
+        <exchange data="Discharge" mesh="Test2-Mesh" from="Test1" to="Test2"/>
+    </coupling-scheme:serial-explicit>
 
     </solver-interface>
 </precice-configuration>

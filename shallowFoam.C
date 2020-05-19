@@ -61,7 +61,12 @@ int main(int argc, char *argv[])
 int rank = 0;
 int size = 1;
 
-precice::SolverInterface precice("shallowFoam","precice-config.xml",rank,size); // constructor
+// must make something that receives participant name en config file automatically
+	//std::string configFileName(argv[1]);
+	//std::string solverName(argv[2]);
+	//precice::SolverInterface precice(solverName,configFileName,rank,size); // constructor
+
+precice::SolverInterface precice("Test1","../precice-config.xml",rank,size); // constructor
 
 double dt; // solver timestep size	runTime.setDeltaT  or  runTime.deltaTValue()
 double precice_dt; // maximum precice timestep size
