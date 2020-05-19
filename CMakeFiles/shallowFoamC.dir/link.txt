@@ -1,0 +1,1 @@
+/usr/bin/c++     CMakeFiles/shallowFoamC.dir/shallowFoam.C.o  -o shallowFoamC -Wl,-rpath,/usr/local/lib /usr/local/lib/libprecice.so.2.0.0 

@@ -1,0 +1,37 @@
+FoamFile
+{
+    version     2.0;
+    format      ascii;
+    class       dictionary;
+    location    "system";
+    object      preciceDict;
+}
+
+preciceConfig "../precice-config.xml";
+
+participant damleft;
+
+modules (FF);
+
+interfaces
+{
+  Interface1
+  {
+    mesh              damleft-Mesh;
+    patches           (rightWall);
+    
+    readData
+    (
+      VelocityGradient
+      Prgh
+      Alpha
+    );
+    
+    writeData
+    (
+      Velocity
+      PrghGradient
+      AlphaGradient
+    );
+  };
+};

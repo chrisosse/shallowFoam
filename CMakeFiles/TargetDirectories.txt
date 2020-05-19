@@ -1,0 +1,4 @@
+/home/chris/shallowFoam/CMakeFiles/rebuild_cache.dir
+/home/chris/shallowFoam/CMakeFiles/edit_cache.dir
+/home/chris/shallowFoam/CMakeFiles/shallowFoamC.dir
+/home/chris/shallowFoam/CMakeFiles/test.dir

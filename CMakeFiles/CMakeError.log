@@ -1,0 +1,55 @@
+Determining if the pthread_create exist failed with the following output:
+Change Dir: /home/chris/shallowFoam/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_676b0/fast"
+/usr/bin/make -f CMakeFiles/cmTC_676b0.dir/build.make CMakeFiles/cmTC_676b0.dir/build
+make[1]: Entering directory '/home/chris/shallowFoam/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_676b0.dir/CheckSymbolExists.cxx.o
+/usr/bin/c++     -o CMakeFiles/cmTC_676b0.dir/CheckSymbolExists.cxx.o -c /home/chris/shallowFoam/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx
+Linking CXX executable cmTC_676b0
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_676b0.dir/link.txt --verbose=1
+/usr/bin/c++       CMakeFiles/cmTC_676b0.dir/CheckSymbolExists.cxx.o  -o cmTC_676b0 
+CMakeFiles/cmTC_676b0.dir/CheckSymbolExists.cxx.o: In function `main':
+CheckSymbolExists.cxx:(.text+0x1b): undefined reference to `pthread_create'
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_676b0.dir/build.make:97: recipe for target 'cmTC_676b0' failed
+make[1]: *** [cmTC_676b0] Error 1
+make[1]: Leaving directory '/home/chris/shallowFoam/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_676b0/fast' failed
+make: *** [cmTC_676b0/fast] Error 2
+
+File /home/chris/shallowFoam/CMakeFiles/CMakeTmp/CheckSymbolExists.cxx:
+/* */
+#include <pthread.h>
+
+int main(int argc, char** argv)
+{
+  (void)argv;
+#ifndef pthread_create
+  return ((int*)(&pthread_create))[argc];
+#else
+  (void)argc;
+  return 0;
+#endif
+}
+
+Determining if the function pthread_create exists in the pthreads failed with the following output:
+Change Dir: /home/chris/shallowFoam/CMakeFiles/CMakeTmp
+
+Run Build Command:"/usr/bin/make" "cmTC_4ba47/fast"
+/usr/bin/make -f CMakeFiles/cmTC_4ba47.dir/build.make CMakeFiles/cmTC_4ba47.dir/build
+make[1]: Entering directory '/home/chris/shallowFoam/CMakeFiles/CMakeTmp'
+Building CXX object CMakeFiles/cmTC_4ba47.dir/CheckFunctionExists.cxx.o
+/usr/bin/c++    -DCHECK_FUNCTION_EXISTS=pthread_create   -o CMakeFiles/cmTC_4ba47.dir/CheckFunctionExists.cxx.o -c /home/chris/shallowFoam/CMakeFiles/CheckLibraryExists/CheckFunctionExists.cxx
+Linking CXX executable cmTC_4ba47
+/usr/bin/cmake -E cmake_link_script CMakeFiles/cmTC_4ba47.dir/link.txt --verbose=1
+/usr/bin/c++   -DCHECK_FUNCTION_EXISTS=pthread_create    CMakeFiles/cmTC_4ba47.dir/CheckFunctionExists.cxx.o  -o cmTC_4ba47 -lpthreads 
+/usr/bin/ld: cannot find -lpthreads
+collect2: error: ld returned 1 exit status
+CMakeFiles/cmTC_4ba47.dir/build.make:97: recipe for target 'cmTC_4ba47' failed
+make[1]: *** [cmTC_4ba47] Error 1
+make[1]: Leaving directory '/home/chris/shallowFoam/CMakeFiles/CMakeTmp'
+Makefile:126: recipe for target 'cmTC_4ba47/fast' failed
+make: *** [cmTC_4ba47/fast] Error 2
+
+

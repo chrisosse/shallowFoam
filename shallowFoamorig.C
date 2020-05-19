@@ -34,13 +34,7 @@ Authors
 
 \*---------------------------------------------------------------------------*/
 
-#include <iostream>
-#include <sstream>
-#include "/home/chris/Software/precice-2.0.0/src/precice/SolverInterface.hpp"
-
-// #include "fvCFD.H"
-#include "/home/chris/OpenFOAM/OpenFOAM-4.1/src/finiteVolume/lnInclude/fvCFD.H"
-
+#include "fvCFD.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -58,23 +52,11 @@ int main(int argc, char *argv[])
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-int rank = 0;
-int size = 1;
-
-precice::SolverInterface precice("shallowFoam","precice-config.xml",rank,size); // constructor
-
-double dt; // solver timestep size	runTime.setDeltaT  or  runTime.deltaTValue()
-double precice_dt; // maximum precice timestep size
-
-
     Info<< "\nStarting time loop\n" << endl;
 
-    precice_dt = precice.initialize(); //returns maximum timestep
     while (runTime.run())
     {
         #include "setDeltaT.H"
-	dt = runTime.deltaTValue();
-	dt = min(precice_dt, dt);
 
         runTime++;
 
@@ -126,8 +108,6 @@ double precice_dt; // maximum precice timestep size
 
 ///////////////////////////////////////////////////////////////////////////////
 
-	precice_dt = precice.advance(dt);
-
         runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
@@ -136,8 +116,6 @@ double precice_dt; // maximum precice timestep size
     }
 
     Info<< "End\n" << endl;
-
-    precice.finalize(); // frees data structures and closes communication channels
 
     return(0);
 }
