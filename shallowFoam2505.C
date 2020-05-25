@@ -56,65 +56,46 @@ int main(int argc, char *argv[])
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
-char solverName[] = "rightSF";
-char configFileName[] =	"../precice-config.xml";
-char meshName[] = "right-Mesh";
 int rank = 0;
 int size = 1;
 
-precice::SolverInterface precice(solverName,configFileName,rank,size); // constructor
+// must make something that receives participant name and meshname en config file automatically
+	//std::string configFileName(argv[1]);
+	//std::string solverName(argv[2]);
+	//precice::SolverInterface precice(solverName,configFileName,rank,size); // constructor
 
-// Read Data
+precice::SolverInterface precice("Test1","../precice-config.xml",rank,size); // constructor
+
 int dim = precice.getDimensions();
-int meshID = precice.getMeshID(meshName);
+int meshID = precice.getMeshID("Test1-Mesh");
 int vertexSize = 1;
 double* coords = new double[vertexSize*dim]; 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
 delete[] coords;
 
-int flowdID = precice.getDataID("FlowDepth", meshID); 	
-int dischID = precice.getDataID("Discharge", meshID); 
-int alphaID = precice.getDataID("Alpha", meshID); 
-int velocID = precice.getDataID("Velocity", meshID); 
-int prghID = precice.getDataID("Prgh", meshID); 
+int flowdID = precice.getDataID("U", meshID); 	
+int dischID = precice.getDataID("HU", meshID); 
 double* flowdepth = new double[vertexSize*dim];
 double* discharge = new double[vertexSize*dim];
-double* alphaw = new double[vertexSize*dim];
-double* velocity = new double[vertexSize*dim];
-double* prgh = new double[vertexSize*dim];
-// End Read Data
 
-	Info	<< "dim = " << precice.getDimensions() << " s"
-            	<< "  flowdepth = " << precice.getDataID("FlowDepth", meshID) << " s"
-		<< "  discharge = " << precice.getDataID("Discharge", meshID) << " s"
-            	<< nl << endl;
-
-// Defining Time step sizes
 double dt; // solver timestep size	runTime.setDeltaT  or  runTime.deltaTValue()
 double precice_dt; // maximum precice timestep size
 
-// Starting Time Loop
+
     Info<< "\nStarting time loop\n" << endl;
-    precice_dt = precice.initialize(); 
 
-    precice.initializeData();
-
+    precice_dt = precice.initialize(); //returns maximum timestep
     while (precice.isCouplingOngoing())
     {
-	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
-	precice.readBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
-
+	precice.readBlockVectorData(flowdID, vertexSize, vertexIDs, flowdepth);
         #include "setDeltaT.H"
 	dt = runTime.deltaTValue();
 	dt = min(precice_dt, dt);
+
         runTime++;
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
-
-	
 
 ///////////////////////////////////////////////////////////////////////////////
 ///     Transport equations for H und HU
@@ -162,9 +143,6 @@ double precice_dt; // maximum precice timestep size
 
 ///////////////////////////////////////////////////////////////////////////////
 
-	//precice.writeBlockScalarData(flowdID, vertexSize, vertexIDs, flowdepth);
-	//precice.writeBlockVectorData(dischID, vertexSize, vertexIDs, discharge);
-
 	precice_dt = precice.advance(dt);
 
         runTime.write();
@@ -177,8 +155,6 @@ double precice_dt; // maximum precice timestep size
     Info<< "End\n" << endl;
 
     precice.finalize(); // frees data structures and closes communication channels
-// Ending Time Loop
-
 
     return(0);
 }

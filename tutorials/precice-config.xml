@@ -4,12 +4,18 @@
 
     <solver-interface dimensions="3">
 
-    <data:vector name="FlowDepth"/>
-    <data:scalar name="Discharge"/>
+    <data:scalar name="FlowDepth"/>
+    <data:vector name="Discharge"/>
+    <data:scalar name="Alpha"/>
+    <data:vector name="Velocity"/>
+    <data:scalar name="Prgh"/>
 
     <mesh name="Test1-Mesh">
         <use-data name="FlowDepth"/>
-        <use-data name="Discharge"/>   
+        <use-data name="Discharge"/>
+        <use-data name="Alpha"/>   
+        <use-data name="Velocity"/>   
+        <use-data name="Prgh"/>   
     </mesh>
 
     <mesh name="Test2-Mesh">

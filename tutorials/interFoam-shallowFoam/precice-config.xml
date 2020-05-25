@@ -1,0 +1,58 @@
+<?xml version="1.0"?>
+
+<precice-configuration>
+
+    <solver-interface dimensions="3">
+
+    <data:scalar name="FlowDepth"/>
+    <data:vector name="Discharge"/>
+    <data:scalar name="Alpha"/>
+    <data:vector name="Velocity"/>
+    <data:scalar name="Prgh"/>
+
+    <mesh name="left-Mesh">
+        <use-data name="FlowDepth"/>   
+        <use-data name="Discharge"/>   
+        <use-data name="Alpha"/>   
+        <use-data name="Velocity"/>   
+        <use-data name="Prgh"/>   
+    </mesh>
+
+    <mesh name="right-Mesh">
+        <use-data name="FlowDepth"/>   
+        <use-data name="Discharge"/>   
+        <use-data name="Alpha"/>   
+        <use-data name="Velocity"/>   
+        <use-data name="Prgh"/> 
+    </mesh>
+
+    <participant name="leftIF">
+        <use-mesh name="left-Mesh" provide="yes"/>
+        <use-mesh name="right-Mesh" from="rightSF"/>
+        <write-data name="Alpha" mesh="left-Mesh"/>
+        <write-data name="Velocity" mesh="left-Mesh"/>
+        <write-data name="Prgh" mesh="left-Mesh"/>
+	<mapping:nearest-neighbor direction="write" from="left-Mesh" to="right-Mesh" 		constraint="consistent" />
+    </participant>
+
+    <participant name="rightSF">
+        <use-mesh name="right-Mesh" provide="yes"/>
+        <use-mesh name="left-Mesh" from="leftIF"/>
+        <read-data name="Alpha" mesh="right-Mesh"/>
+        <read-data name="Velocity" mesh="right-Mesh"/>
+        <read-data name="Prgh" mesh="right-Mesh"/>
+    </participant>
+
+    <m2n:sockets from="leftIF" to="rightSF" exchange-directory=".." />
+
+    <coupling-scheme:serial-explicit>
+        <time-window-size value="0.1"/>
+        <max-time value="2.0"/>
+        <participants first="leftIF" second="rightSF"/>
+        <exchange data="Alpha" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+        <exchange data="Velocity" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+        <exchange data="Prgh" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+    </coupling-scheme:serial-explicit>
+
+    </solver-interface>
+</precice-configuration>
