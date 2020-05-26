@@ -56,19 +56,26 @@ int main(int argc, char *argv[])
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
-
+// This should be changed accordingly
 char solverName[] = "rightSF";
 char configFileName[] =	"../precice-config.xml";
-char meshName[] = "right-Mesh";
 int rank = 0;
 int size = 1;
+double meshHeight = 4;
+double meshWidth = 0.1;
 
-precice::SolverInterface precice(solverName,configFileName,rank,size); // constructor
+char meshName[] = "right-Mesh";
+int nvertex1 = 1;
 
-// Read Data
+char meshName2[] = "left-Mesh";
+int nvertex2 = 40;
+
+precice::SolverInterface precice(solverName,configFileName,rank,size);
 int dim = precice.getDimensions();
+
+// Make data structures shallowFoam (1)
 int meshID = precice.getMeshID(meshName);
-int vertexSize = 1;
+int vertexSize = nvertex1;				// Set number of vertices at wet surface
 double* coords = new double[vertexSize*dim]; 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
@@ -78,22 +85,39 @@ int flowdID = precice.getDataID("FlowDepth", meshID);
 int dischID = precice.getDataID("Discharge", meshID); 
 int alphaID = precice.getDataID("Alpha", meshID); 
 int velocID = precice.getDataID("Velocity", meshID); 
-int prghID = precice.getDataID("Prgh", meshID); 
+int prghID = precice.getDataID("Prgh", meshID);
+
 double* flowdepth = new double[vertexSize*dim];
 double* discharge = new double[vertexSize*dim];
 double* alphaw = new double[vertexSize*dim];
 double* velocity = new double[vertexSize*dim];
 double* prgh = new double[vertexSize*dim];
-// End Read Data
+// End make data structures shallowFoam
 
-	Info	<< "dim = " << precice.getDimensions() << " s"
-            	<< "  flowdepth = " << precice.getDataID("FlowDepth", meshID) << " s"
-		<< "  discharge = " << precice.getDataID("Discharge", meshID) << " s"
-            	<< nl << endl;
+// Make data structures interFoam (2)
+int meshID2 = precice.getMeshID(meshName2);
+int vertexSize2 = nvertex2;				// Set number of vertices at wet surface
+double* coords2 = new double[vertexSize2*dim]; 
+int* vertexIDs2 = new int[vertexSize2];
+delete[] coords2;
+
+int flowdID2 = precice.getDataID("FlowDepth", meshID2); 	
+int dischID2 = precice.getDataID("Discharge", meshID2); 
+int alphaID2 = precice.getDataID("Alpha", meshID2); 
+int velocID2 = precice.getDataID("Velocity", meshID2); 
+int prghID2 = precice.getDataID("Prgh", meshID2);
+
+double* flowdepth2 = new double[vertexSize2*dim];
+double* discharge2 = new double[vertexSize2*dim];
+double* alphaw2 = new double[vertexSize2*dim];
+double* velocity2 = new double[vertexSize2*dim];
+double* prgh2 = new double[vertexSize2*dim];
+// End make data structures interFoam
+
 
 // Defining Time step sizes
-double dt; // solver timestep size	runTime.setDeltaT  or  runTime.deltaTValue()
-double precice_dt; // maximum precice timestep size
+double dt; 		// solver timestep size	runTime.setDeltaT  or  runTime.deltaTValue()
+double precice_dt; 	// maximum precice timestep size
 
 // Starting Time Loop
     Info<< "\nStarting time loop\n" << endl;
@@ -103,9 +127,32 @@ double precice_dt; // maximum precice timestep size
 
     while (precice.isCouplingOngoing())
     {
+	// Data handling and conversion
 	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
 	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
 	precice.readBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
+
+	// Alpha to H conversion
+	int i;
+	double H_left = 0;
+	for ( i = 0; i<vertexSize ; i++ )
+	{
+	    H_left += alphaw[i] * meshHeight / vertexSize;
+	}
+		
+        Info<< "H_left = " << H_left << nl << endl;
+
+	// U to HU conversion
+	double HUx_left = 0;
+	double HUy_left = 0;
+	for ( i = 0; i<vertexSize ; i++ )
+	{
+	    HUx_left += alpha[i] * velocity[i] / (meshWidth * meshHeight / vertexSize);
+	    HUy_left += alpha[i] * velocity[i] / (meshWidth * meshHeight / vertexSize);
+	}
+		
+        Info<< "H_left = " << H_left << nl << endl;
+
 
         #include "setDeltaT.H"
 	dt = runTime.deltaTValue();
@@ -113,8 +160,6 @@ double precice_dt; // maximum precice timestep size
         runTime++;
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
-
-	
 
 ///////////////////////////////////////////////////////////////////////////////
 ///     Transport equations for H und HU
