@@ -63,9 +63,9 @@ int rank = 0;
 int size = 1;
 double meshHeight = 4;
 double meshWidth = 0.1;
-
 char meshName[] = "right-Mesh";
-int nvertex = 40;
+int nFaces = 40;
+int nVertex = 2 * nFaces + 2;
 
 precice::SolverInterface precice(solverName,configFileName,rank,size);
 int dim = precice.getDimensions();
@@ -74,33 +74,37 @@ int dim = precice.getDimensions();
 // Make data structures for shallowFoam
 
 int meshID = precice.getMeshID(meshName);
-int vertexSize = nvertex;				// Set number of vertices at wet surface
+int vertexSize = nVertex;				// Set number of vertices at wet surface
 double* coords = new double[vertexSize*dim]; 
 
 for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interface
 {
-    coords[0+3*i] = 0.0+0.1*i; 	// x
-    coords[1+3*i] = 4.0; 	// y
-    coords[2+3*i] = 0.0; 	// z
+    if ( i < vertexSize / 2 )
+    {
+	coords[0+3*i] = 4.0; 		// x
+	coords[1+3*i] = 0.0+0.1*i; 	// y
+	coords[2+3*i] = 0.0; 		// z
+    }
+    else
+    {
+	coords[0+3*i] = 4.0; 		// x
+	coords[1+3*i] = 0.0+0.1*i; 	// y
+	coords[2+3*i] = 1.0; 		// z
+    }
 }
 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
 delete[] coords;
 
-/////
-int vertexSize_SF = 2;
-int* vertexIDs_SF = new int[vertexSize_SF];
-/////
-
-int flowdID = precice.getDataID("FlowDepth", meshID); 	
-int dischID = precice.getDataID("Discharge", meshID); 
+//int flowdID = precice.getDataID("FlowDepth", meshID); 	
+//int dischID = precice.getDataID("Discharge", meshID); 
 int alphaID = precice.getDataID("Alpha", meshID); 
 int velocID = precice.getDataID("Velocity", meshID); 
 int prghID = precice.getDataID("Prgh", meshID);
 
-double* flowdepth = new double[vertexSize_SF];
-double* discharge = new double[vertexSize_SF*dim];
+//double* flowdepth = new double[vertexSize_SF];
+//double* discharge = new double[vertexSize_SF*dim];
 double* alphaw = new double[vertexSize];
 double* velocity = new double[vertexSize*dim];
 double* prgh = new double[vertexSize];
@@ -121,42 +125,52 @@ double precice_dt; 	// maximum precice timestep size
 
     while (precice.isCouplingOngoing())
     {
-	// Data handling and conversion
+	// Data reading
 	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
 	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
 	precice.readBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
-
-	Info<< "alpha = " << alphaw[0] << nl << endl;
+	Info<< "alpha = " << alphaw[0] << endl;
+	Info<< "velocity = " << velocity[0] << endl;
+	// End Data reading
 
 	// Alpha to H conversion
-	double H_left = 0;
-	for ( int i = 0; i<vertexSize ; i++ )
+	double H_BC = 0;
+	for ( int i = 1; i < nFaces + 1 ; i++ )
 	{
-	    H_left += alphaw[i] * meshHeight / (vertexSize-1);
+	    H_BC += alphaw[i] * meshHeight / nFaces;
 	}
+	// End Alpha to H conversion
+
+	// Updating BC H
+	H.boundaryFieldRef()[0][0] = H_BC;
+	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
+	// End Updating BC H
 	
-	double H_bound = 	H.boundaryField()[0][0];
-	scalarField H_field = 	H.internalField();
-	H_field[0] = H_bound;
-
-	flowdepth[0] = H_bound;
-	flowdepth[1] = H_bound;
-	//precice.writeBlockScalarData(flowdID, vertexSize_SF, vertexIDs_SF, flowdepth);
-
-	Info<< "H_left = " << H_left << nl << endl;
-	Info<< "H bound = " << H_bound << nl << endl;
-	Info<< "H field = " << H_field << nl << endl;
 
 	// U to HU conversion
-//	double HUx_left = 0;
-//	double HUy_left = 0;
-//	for ( int i = 0; i<vertexSize ; i++ )
-//	{
-//	    HUx_left += alpha[i] * velocity[i] / (meshWidth * meshHeight / vertexSize);
-//	    HUy_left += alpha[i] * velocity[i] / (meshWidth * meshHeight / vertexSize);
-//	}
+	double HUx_BC = 0;
+	double HUy_BC = 0;
+	double HUz_BC = 0;
+	for ( int i = 0; i < nFaces + 1 ; i++ )
+	{
+	    if ( alphaw[i] > 0 )
+	    {
+		HUx_BC += alphaw[i] * velocity[0+i*3] / (nFaces+1);
+		HUy_BC += alphaw[i] * velocity[1+i*3] / (nFaces+1);
+		HUz_BC += alphaw[i] * velocity[2+i*3] / (nFaces+1);
+	    }
+	}
+	//double HU_BC = (HUx_BC HUy_BC HUz_BC)
+        HU.boundaryFieldRef()[0][0].component(0) = HUx_BC;
+        HU.boundaryFieldRef()[0][0].component(1) = HUy_BC;
+        HU.boundaryFieldRef()[0][0].component(2) = HUz_BC;
 		
-//	Info<< "HUx_left = " << HUx_left << nl << endl;
+	Info<< "HUx_BC = " << HUx_BC << endl;
+	Info<< "HU = " << HU.boundaryField()[0][0] << endl;
+
+
+
+
 
 
         #include "setDeltaT.H"
