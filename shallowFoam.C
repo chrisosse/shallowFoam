@@ -62,10 +62,13 @@ char configFileName[] =	"../precice-config.xml";
 int rank = 0;
 int size = 1;
 double meshHeight = 4;
-double meshWidth = 0.1;
 char meshName[] = "right-Mesh";
 int nFaces = 40;
 int nVertex = 2 * nFaces + 2;
+double faceHeight = (meshHeight / nFaces);
+double rhow3D = 1000;	// Same as fluid density in other solver
+double rhoa3D = 1;	// Same as air density in other solver
+double g3D = 9.81;	// Same as gravitational acceleration in other solver
 
 precice::SolverInterface precice(solverName,configFileName,rank,size);
 int dim = precice.getDimensions();
@@ -95,7 +98,6 @@ for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interfa
 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
-delete[] coords;
 
 //int flowdID = precice.getDataID("FlowDepth", meshID); 	
 //int dischID = precice.getDataID("Discharge", meshID); 
@@ -133,44 +135,39 @@ double precice_dt; 	// maximum precice timestep size
 	Info<< "velocity = " << velocity[0] << endl;
 	// End Data reading
 
-	// Alpha to H conversion
+	// Alpha to H conversion and updating BC H
 	double H_BC = 0;
-	for ( int i = 1; i < nFaces + 1 ; i++ )
+	for ( int i = 1; i < nFaces + 1 ; i++ )				// For vertices above groud level
 	{
-	    H_BC += alphaw[i] * meshHeight / nFaces;
+	    H_BC += alphaw[i] * faceHeight;				// H = sum(alpha * faceheight)
 	}
-	// End Alpha to H conversion
 
-	// Updating BC H
-	H.boundaryFieldRef()[0][0] = H_BC;
+	H.boundaryFieldRef()[0][0] = H_BC;				// Set boundary condition H
+	// End Alpha to H conversion and updating BC H
+
 	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
-	// End Updating BC H
-	
 
-	// U to HU conversion
+	// U to HU conversion and updating BC HU
 	double HUx_BC = 0;
 	double HUy_BC = 0;
 	double HUz_BC = 0;
-	for ( int i = 0; i < nFaces + 1 ; i++ )
+	for ( int i = 0; i < nFaces + 1 ; i++ )				// For all vertices 
 	{
 	    if ( alphaw[i] > 0 )
 	    {
-		HUx_BC += alphaw[i] * velocity[0+i*3] / (nFaces+1);
-		HUy_BC += alphaw[i] * velocity[1+i*3] / (nFaces+1);
-		HUz_BC += alphaw[i] * velocity[2+i*3] / (nFaces+1);
+		HUx_BC += alphaw[i] * velocity[0+i*3] / (nFaces+1);	// HUx = mean(alpha * Ux)
+		HUy_BC += alphaw[i] * velocity[1+i*3] / (nFaces+1);	// HUy = mean(alpha * Uy)
+		HUz_BC += alphaw[i] * velocity[2+i*3] / (nFaces+1);	// HUz = mean(alpha * Uz)
 	    }
 	}
-	//double HU_BC = (HUx_BC HUy_BC HUz_BC)
-        HU.boundaryFieldRef()[0][0].component(0) = HUx_BC;
-        HU.boundaryFieldRef()[0][0].component(1) = HUy_BC;
-        HU.boundaryFieldRef()[0][0].component(2) = HUz_BC;
-		
+
+        HU.boundaryFieldRef()[0][0].component(0) = HUx_BC;		// Set boundary condition HUx
+        HU.boundaryFieldRef()[0][0].component(1) = HUy_BC;		// Set boundary condition HUy
+        HU.boundaryFieldRef()[0][0].component(2) = HUz_BC;		// Set boundary condition HUz
+	// End U to HU conversion and updating BC HU
+
 	Info<< "HUx_BC = " << HUx_BC << endl;
 	Info<< "HU = " << HU.boundaryField()[0][0] << endl;
-
-
-
-
 
 
         #include "setDeltaT.H"
@@ -206,11 +203,11 @@ double precice_dt; 	// maximum precice timestep size
 
          fvVectorMatrix HUEqn
          (
-             fvm::ddt(HU)          // d(HU_i)/dt                    Local derivative
-	     + fvm::div(phi, HU)   // + d/dx_j ( U_j * HU_i )       Convection
-	     + H*gradgSpHf          // + H * d/dx_i ( gSpH )        Downhill-slope force and acceleration due to change in flowdepth
-	     + fvm::Sp(alpha,HU)   // + alpha * HU                  Bottom friction
-	     - fvm::laplacian(nut,HU) // - d^2/dx_j^2 ( nut * HU )  Turbulent stresses
+             fvm::ddt(HU)          	// d(HU_i)/dt			Local derivative
+	     + fvm::div(phi, HU)   	// + d/dx_j ( U_j * HU_i )	Convection
+	     + H*gradgSpHf          	// + H * d/dx_i ( gSpH )	Downhill-slope force and acceleration due to change in flowdepth
+	     + fvm::Sp(alpha,HU)   	// + alpha * HU			Bottom friction
+	     - fvm::laplacian(nut,HU) 	// - d^2/dx_j^2 ( nut * HU )	Turbulent stresses
          );  
 
 	HUEqn.solve();
@@ -226,8 +223,44 @@ double precice_dt; 	// maximum precice timestep size
 
 ///////////////////////////////////////////////////////////////////////////////
 
-	//precice.writeBlockScalarData(flowdID, vertexSize, vertexIDs, flowdepth);
-	//precice.writeBlockVectorData(dischID, vertexSize, vertexIDs, discharge);
+	
+	double h = H.boundaryField()[0][0];		// Flow depth on 2D boundary
+	double zb = S.boundaryField()[0][0];		// Bottom elevation on 2D boundary
+	double zw = zb + h;				// Water surface height on 2D boundary
+
+	// H to alpha conversion and updating BC alphaw
+	for ( int i = 0; i<vertexSize ; i++ )			
+	{
+	    if ( zw < coords[1+3*i] - 0.5 * (meshHeight / nFaces))		// For H <
+	    {
+		alphaw[i] = 0;
+	    }
+	    else if ( zw > coords[1+3*(i)] + 0.5 * (meshHeight / nFaces))	// For H >
+	    {
+		alphaw[i] = 1;
+	    }
+	    else								// For < H <
+	    {
+		alphaw[i] = 0.5 + (zw - coords[1+3*i]) / faceHeight;		// Interpolate
+	    }
+	}
+	
+	//precice.writeBlockScalarData(flowdID, vertexSize, vertexIDs, alphaw);
+	// End H to alpha conversion and updating BC alphaw
+	
+	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
+	Info<< "new aplhaw = " << alphaw[1] << endl;
+
+
+	// H to Prgh conversion and updating BC Prgh
+
+	for ( int i = 0; i < nFaces + 1 ; i++ )	
+	{
+	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
+	}
+	Info<< "new prgh = " << prgh[1] << nl << endl;
+
+
 
 	precice_dt = precice.advance(dt);
 	runTime.setDeltaT(dt);
