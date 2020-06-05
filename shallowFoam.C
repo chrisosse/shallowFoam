@@ -40,6 +40,7 @@ Authors
 #include "precice/SolverInterface.hpp"
 
 #include "fvCFD.H"
+#include <math.h>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -69,6 +70,7 @@ double faceHeight = (meshHeight / nFaces);
 double rhow3D = 1000;	// Same as fluid density in other solver
 double rhoa3D = 1;	// Same as air density in other solver
 double g3D = 9.81;	// Same as gravitational acceleration in other solver
+double nu3D = 1e-06;	// Same as nu for water in other solver
 
 precice::SolverInterface precice(solverName,configFileName,rank,size);
 int dim = precice.getDimensions();
@@ -259,6 +261,46 @@ double precice_dt; 	// maximum precice timestep size
 	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
 	}
 	Info<< "new prgh = " << prgh[1] << nl << endl;
+
+
+	// H and HU to U conversion and updating BC U
+	double* dy = new double[3];
+	double mu = nu3D * rhow3D;
+	double* DU = new double[vertexSize*dim];
+	double* U2D = new double[3];
+	double* tau = new double[vertexSize*dim];
+
+	for ( int i = 0; i == 2 ; i++ )
+	{
+	    U2D[i] = U.boundaryField()[0][0].component(i);
+	}
+
+	for ( int i = 0; i < nFaces + 1 ; i++ )	
+	{
+	    if (i == 0)
+	    {
+		dy[i] = 0.000001;
+		for ( int j = 0; i == 2 ; i++ )
+		{
+		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
+		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
+	  	    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
+		}
+	    }
+	    else
+	    {
+		dy[i] = coords[1+3*i] - coords[1+3*(i-1)];
+		for ( int j = 0; i == 2 ; i++ )
+		{
+		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
+		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
+		    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
+		}
+	    }
+	} 
+	// End H and HU to U conversion and updating BC U
+
+	Info<< "new U = " << velocity[1] << nl << endl;
 
 
 

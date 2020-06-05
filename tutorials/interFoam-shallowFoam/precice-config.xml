@@ -46,7 +46,7 @@
     <m2n:sockets from="leftIF" to="rightSF" exchange-directory=".." />
 
     <coupling-scheme:serial-explicit>
-        <time-window-size value="0.1"/>
+        <time-window-size value="0.05"/>
         <max-time value="2.0"/>
         <participants first="leftIF" second="rightSF"/>
         <exchange data="Alpha" mesh="right-Mesh" from="leftIF" to="rightSF"/>
