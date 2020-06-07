@@ -36,7 +36,6 @@ Authors
 
 #include <iostream>
 #include <sstream>
-#include <math.h> 
 
 #include "precice/SolverInterface.hpp"
 
@@ -70,17 +69,13 @@ double faceHeight = (meshHeight / nFaces);
 double rhow3D = 1000;	// Same as fluid density in other solver
 double rhoa3D = 1;	// Same as air density in other solver
 double g3D = 9.81;	// Same as gravitational acceleration in other solver
-double nu3D = 1e-06;	// Same as nu for water in other solver
 
 precice::SolverInterface precice(solverName,configFileName,rank,size);
-
-const std::string& coric = precice::constants::actionReadIterationCheckpoint(); 
-const std::string& cowic = precice::constants::actionWriteIterationCheckpoint();
-
 int dim = precice.getDimensions();
 
 
 // Make data structures for shallowFoam
+
 int meshID = precice.getMeshID(meshName);
 int vertexSize = nVertex;				// Set number of vertices at wet surface
 double* coords = new double[vertexSize*dim]; 
@@ -103,21 +98,21 @@ for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interfa
 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
- 
+
+//int flowdID = precice.getDataID("FlowDepth", meshID); 	
+//int dischID = precice.getDataID("Discharge", meshID); 
 int alphaID = precice.getDataID("Alpha", meshID); 
 int velocID = precice.getDataID("Velocity", meshID); 
 int prghID = precice.getDataID("Prgh", meshID);
 
+//double* flowdepth = new double[vertexSize_SF];
+//double* discharge = new double[vertexSize_SF*dim];
 double* alphaw = new double[vertexSize];
 double* velocity = new double[vertexSize*dim];
 double* prgh = new double[vertexSize];
+
 // End make data structures for shallowFoam
 
-
-// Make data structure for checkpoints
-double* alphawcheck = alphaw;
-double Hcheck;
-// End make data structure for checkpoints
 
 
 // Defining Time step sizes
@@ -132,14 +127,6 @@ double precice_dt; 	// maximum precice timestep size
 
     while (precice.isCouplingOngoing())
     {
-	if(precice.isActionRequired(cowic))
-	{
-	    // save initial data
-	    alphawcheck = alphaw;
-	    Hcheck = H.boundaryField()[0][0];
-	    precice.markActionFulfilled(cowic);
-	}
-
 	// Data reading
 	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
 	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
@@ -266,69 +253,56 @@ double precice_dt; 	// maximum precice timestep size
 
 
 	// H to Prgh conversion and updating BC Prgh
+
 	for ( int i = 0; i < nFaces + 1 ; i++ )	
 	{
 	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
 	}
-	// End H to Prgh conversion and updating BC Prgh
-
-	Info<< "new prgh = " << prgh[1] << endl;
+	Info<< "new prgh = " << prgh[1] << nl << endl;
 
 
-	// H and HU to U conversion and updating BC U
-	double* dy = new double[3];
-	double mu = nu3D * rhow3D;
-	double* DU = new double[vertexSize*dim];
-	double* U2D = new double[3];
-	double* tau = new double[vertexSize*dim];
 
-	for ( int i = 0; i == 2 ; i++ )
+	// H and HU to U conversion and updating BC U 
+	double multi[dim] = {0.0, 0.0, 0.0};
+	double q3D[dim] = {0.0, 0.0, 0.0};
+
+	for ( int j = 0; j<dim ; j++ )
 	{
-	    U2D[i] = U.boundaryField()[0][0].component(i);
-	}
+	    multi[j] = U.boundaryField()[0][0].component(j) / (H.boundaryField()[0][0] / 2);
 
-	for ( int i = 0; i < nFaces + 1 ; i++ )	
-	{
-	    if (i == 0)
+	    for ( int i = 0; i<vertexSize ; i++ )
 	    {
-		dy[i] = 0.000001;
-		for ( int j = 0; i == 2 ; i++ )
-		{
-		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
-	  	    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
-		}
+	    	if ( alphaw[i] > 0.01 )
+	    	{
+		    velocity[j+i*3] = coords[1+i*3] * multi[j];
+		    q3D[j] += alphaw[i] * velocity[j+i*3] * faceHeight; 
+	    	}
+	    	else
+	    	{
+		    velocity[j+i*3] = 2 * U.boundaryField()[0][0].component(j);
+		    q3D[j] += alphaw[i] * velocity[j+i*3] * faceHeight; 
+	   	}
 	    }
-	    else
-	    {
-		dy[i] = coords[1+3*i] - coords[1+3*(i-1)];
-		for ( int j = 0; i == 2 ; i++ )
-		{
-		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
-		    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
-		}
-	    }
-	} 
+ 	}
+
+	double Beta[dim] = {0.0, 0.0, 0.0};
+
+
 	// End H and HU to U conversion and updating BC U
 
-	Info<< "new U = " << velocity[1] << nl << endl;
+	Info<< "q3D[0] = " << q3D[0] << endl;
+	Info<< "multi[0] = " << multi[0] << endl;
+	Info<< "multi[1] = " << multi[1] << endl;
+	Info<< "multi[2] = " << multi[2] << endl;
+	Info<< "HU[0] = " << HU.boundaryField()[0][0].component(0) << endl;
+
+
 
 
 	precice_dt = precice.advance(dt);
-	
-	if(precice.isActionRequired(coric))	// timestep not converged
-	{ 
-	    // load initial data
-	    alphaw = alphawcheck;
-	    H.boundaryFieldRef()[0][0] = Hcheck;
-	    precice.markActionFulfilled(coric);
-	}
-	else{ 
-	    runTime.setDeltaT(dt);
-            runTime.write();
-	}
+	runTime.setDeltaT(dt);
 
+        runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
@@ -337,8 +311,8 @@ double precice_dt; 	// maximum precice timestep size
 
     Info<< "End\n" << endl;
 
-    precice.finalize(); 			// Frees data structures and closes communication channels
-
+    precice.finalize(); // frees data structures and closes communication channels
+// Ending Time Loop
 
 
     return(0);

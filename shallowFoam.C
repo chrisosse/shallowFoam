@@ -255,52 +255,89 @@ double precice_dt; 	// maximum precice timestep size
 
 
 	// H to Prgh conversion and updating BC Prgh
-
-	for ( int i = 0; i < nFaces + 1 ; i++ )	
+	for ( int i = 0; i<vertexSize + 1 ; i++ )	
 	{
 	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
 	}
-	Info<< "new prgh = " << prgh[1] << nl << endl;
+	// End H to Prgh conversion and updating BC Prgh
+
+	Info<< "new prgh = " << prgh[1] << endl;
 
 
-	// H and HU to U conversion and updating BC U
-	double* dy = new double[3];
+	// H and HU to U conversion and updating BC U 
 	double mu = nu3D * rhow3D;
-	double* DU = new double[vertexSize*dim];
-	double* U2D = new double[3];
-	double* tau = new double[vertexSize*dim];
+	double Beta[dim] = {};
+	double U2D[dim] = {};
+	double dy[vertexSize] = {};
+	double DU[vertexSize*dim] = {};
+	double Ustar[vertexSize*dim] = {};
+	double tau[vertexSize*dim] = {};
+	double q3D[dim] = {};
 
-	for ( int i = 0; i == 2 ; i++ )
+	for ( int j = 0; j<dim ; j++ )			// Set initial values
 	{
-	    U2D[i] = U.boundaryField()[0][0].component(i);
+	    U2D[j] = U.boundaryField()[0][0].component(j);
 	}
 
-	for ( int i = 0; i < nFaces + 1 ; i++ )	
+	for ( int i = 0; i<vertexSize ; i++ )		// Calculate velocity
 	{
-	    if (i == 0)
+	    if ( coords[1+3*i] == 0 )
 	    {
-		dy[i] = 0.000001;
-		for ( int j = 0; i == 2 ; i++ )
+		dy[i] = 0;
+		for ( int j = 0; j<dim ; j++ )
 		{
-		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
-	  	    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
+		    DU[j+3*i] = 0;
+		    tau[j+3*i] = 1e6;
+		    Ustar[j+3*i] = std::pow((tau[j+3*i]/rhow3D),0.5);
+	  	    velocity[j+3*i] = 0;
+		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
 		}
 	    }
 	    else
 	    {
 		dy[i] = coords[1+3*i] - coords[1+3*(i-1)];
-		for ( int j = 0; i == 2 ; i++ )
+		for ( int j = 0; j<dim ; j++ )
 		{
 		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
-		    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
+		    tau[j+3*i] = abs(mu * DU[j+3*i] / faceHeight);
+		    Ustar[j+3*i] = std::sqrt(tau[j+3*i] / rhow3D);
+		    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));
+		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
 		}
 	    }
 	} 
-	// End H and HU to U conversion and updating BC U
 
-	Info<< "new U = " << velocity[1] << nl << endl;
+	Info<< "q3D0 = " << q3D[0] << endl;
+	Info<< "q3D1 = " << q3D[1] << endl;
+	Info<< "q3D2 = " << q3D[2] << endl;
+ 
+	for ( int j = 0; j<dim ; j++ )
+	{
+	    if ( q3D[j] != 0 ) 
+	    {
+		Beta[j] = HU.boundaryField()[0][0].component(j) / q3D[j];
+
+		while ( Beta[j] > 1)
+		{
+		    q3D[j] = {};		
+
+		    for ( int i = 0; i<vertexSize ; i++ )
+		    {
+			velocity[j+3*i] = velocity[j+3*i] * Beta[j];
+			q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
+		    }
+
+	    	    Beta[j] = HU.boundaryField()[0][0].component(j) / q3D[j]; 
+		}
+	    }
+	}
+	// End H and HU to U conversion and updating BC U
+	Info<< "velocity = " << velocity[3] << endl;
+	Info<< "q3D0 = " << q3D[0] << endl;
+	Info<< "Beta = " << Beta[0] << endl;
+	Info<< "HU bound0 = " << HU.boundaryField()[0][0].component(0) << endl;
+	Info<< "Ustar = " << Ustar[3] << endl;
+
 
 
 
