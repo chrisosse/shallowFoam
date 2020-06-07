@@ -317,7 +317,7 @@ double precice_dt; 	// maximum precice timestep size
 	    {
 		Beta[j] = HU.boundaryField()[0][0].component(j) / q3D[j];
 
-		while ( Beta[j] > 1)
+		while ( Beta[j] > 1) // Should also include Beta[j] < 1
 		{
 		    q3D[j] = {};		
 
