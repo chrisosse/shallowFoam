@@ -108,10 +108,14 @@ for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interfa
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
 
+//int flowdID = precice.getDataID("FlowDepth", meshID); 	
+//int dischID = precice.getDataID("Discharge", meshID); 
 int alphaID = precice.getDataID("Alpha", meshID); 
 int velocID = precice.getDataID("Velocity", meshID); 
 int prghID = precice.getDataID("Prgh", meshID);
 
+//double* flowdepth = new double[vertexSize_SF];
+//double* discharge = new double[vertexSize_SF*dim];
 double* alphaw = new double[vertexSize];
 double* velocity = new double[vertexSize*dim];
 double* prgh = new double[vertexSize];
@@ -130,10 +134,10 @@ double precice_dt; 	// maximum precice timestep size
 
     precice.initializeData();
 
-    while (precice.isCouplingOngoing() && runTime.run())	
+    while (precice.isCouplingOngoing())	
     {
 
-      if ( 0==1 )//coupled && (unidirec_iFsF || bidirec) )	// If coupled and unidirecIFSF or bidirec
+      if ( coupled && (unidirec_iFsF || bidirec) )	// If coupled and unidirecIFSF or bidirec
       {
 
 	// Data reading
@@ -234,10 +238,9 @@ double precice_dt; 	// maximum precice timestep size
 ///////////////////////////////////////////////////////////////////////////////
 
 
-      if ( 0==0 ) //coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
+      if ( coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
       {
 	
-if (1==0){
 	double h = H.boundaryField()[0][0];		// Flow depth on 2D boundary
 	double zb = S.boundaryField()[0][0];		// Bottom elevation on 2D boundary
 	double zw = zb + h;				// Water surface height on 2D boundary
@@ -258,10 +261,12 @@ if (1==0){
 		alphaw[i] = 0.5 + (zw - coords[1+3*i]) / faceHeight;		// Interpolate
 	    }
 	}
+	
+	//precice.writeBlockScalarData(flowdID, vertexSize, vertexIDs, alphaw);
 	// End H to alpha conversion and updating BC alphaw
 	
 	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
-	Info<< "new aplhaw = " << alphaw[5] << endl;
+	Info<< "new aplhaw = " << alphaw[1] << endl;
 
 
 	// H to Prgh conversion and updating BC Prgh
@@ -272,7 +277,6 @@ if (1==0){
 	// End H to Prgh conversion and updating BC Prgh
 
 	Info<< "new prgh = " << prgh[1] << endl;
-
 
 
 	// H and HU to U conversion and updating BC U 
@@ -358,33 +362,25 @@ if (1==0){
 		}
 	    }
 	}
+
+
+	
 	// End H and HU to U conversion and updating BC U
 	Info<< "velocity = " << velocity[3] << endl;
 	Info<< "q3D0 = " << q3D[0] << endl;
 	Info<< "Beta = " << Beta[0] << endl;
 	Info<< "HU bound0 = " << HU.boundaryField()[0][0].component(0) << endl;
 	Info<< "Ustar = " << Ustar[3] << endl;
-}
-
-	for ( int i = 0; i<vertexSize ; i++ )
-	{
-	    alphaw[i] = 1;
-	    if (alphaw[i] > 0)
-	    {
-		velocity[0+3*i] = -1;
-		velocity[1+3*i] = 0;
-		velocity[2+3*i] = 0;
-	    }	
-	}
 
 
-	// Data writing
+	// Data reading
 	precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
 	precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
 	precice.writeBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
-	// End Data writing
+	// End Data reading
 
       } // End if
+
 
 	precice_dt = precice.advance(dt);
 	runTime.setDeltaT(dt);

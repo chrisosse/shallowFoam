@@ -36,11 +36,11 @@ Authors
 
 #include <iostream>
 #include <sstream>
+#include <math.h> 
 
 #include "precice/SolverInterface.hpp"
 
 #include "fvCFD.H"
-#include <math.h>
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
 
@@ -56,13 +56,6 @@ int main(int argc, char *argv[])
 #   include "setInitialDeltaT.H"
 
 // * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * * //
-
-// Set coupling scheme type
-bool coupled = true;
-bool unidirec_iFsF = false;
-bool unidirec_sFiF = true;
-bool bidirec = false;
-bool implicit = false;
 
 // This should be changed accordingly
 char solverName[] = "rightSF";
@@ -80,11 +73,14 @@ double g3D = 9.81;	// Same as gravitational acceleration in other solver
 double nu3D = 1e-06;	// Same as nu for water in other solver
 
 precice::SolverInterface precice(solverName,configFileName,rank,size);
+
+const std::string& coric = precice::constants::actionReadIterationCheckpoint(); 
+const std::string& cowic = precice::constants::actionWriteIterationCheckpoint();
+
 int dim = precice.getDimensions();
 
 
 // Make data structures for shallowFoam
-
 int meshID = precice.getMeshID(meshName);
 int vertexSize = nVertex;				// Set number of vertices at wet surface
 double* coords = new double[vertexSize*dim]; 
@@ -107,7 +103,7 @@ for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interfa
 
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
-
+ 
 int alphaID = precice.getDataID("Alpha", meshID); 
 int velocID = precice.getDataID("Velocity", meshID); 
 int prghID = precice.getDataID("Prgh", meshID);
@@ -115,9 +111,13 @@ int prghID = precice.getDataID("Prgh", meshID);
 double* alphaw = new double[vertexSize];
 double* velocity = new double[vertexSize*dim];
 double* prgh = new double[vertexSize];
-
 // End make data structures for shallowFoam
 
+
+// Make data structure for checkpoints
+double* alphawcheck = alphaw;
+double Hcheck;
+// End make data structure for checkpoints
 
 
 // Defining Time step sizes
@@ -130,11 +130,15 @@ double precice_dt; 	// maximum precice timestep size
 
     precice.initializeData();
 
-    while (precice.isCouplingOngoing() && runTime.run())	
+    while (precice.isCouplingOngoing())
     {
-
-      if ( 0==1 )//coupled && (unidirec_iFsF || bidirec) )	// If coupled and unidirecIFSF or bidirec
-      {
+	if(precice.isActionRequired(cowic))
+	{
+	    // save initial data
+	    alphawcheck = alphaw;
+	    Hcheck = H.boundaryField()[0][0];
+	    precice.markActionFulfilled(cowic);
+	}
 
 	// Data reading
 	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
@@ -178,7 +182,6 @@ double precice_dt; 	// maximum precice timestep size
 	Info<< "HUx_BC = " << HUx_BC << endl;
 	Info<< "HU = " << HU.boundaryField()[0][0] << endl;
 
-      }	// End if
 
         #include "setDeltaT.H"
 	dt = runTime.deltaTValue();
@@ -233,11 +236,7 @@ double precice_dt; 	// maximum precice timestep size
 
 ///////////////////////////////////////////////////////////////////////////////
 
-
-      if ( 0==0 ) //coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
-      {
 	
-if (1==0){
 	double h = H.boundaryField()[0][0];		// Flow depth on 2D boundary
 	double zb = S.boundaryField()[0][0];		// Bottom elevation on 2D boundary
 	double zw = zb + h;				// Water surface height on 2D boundary
@@ -258,14 +257,16 @@ if (1==0){
 		alphaw[i] = 0.5 + (zw - coords[1+3*i]) / faceHeight;		// Interpolate
 	    }
 	}
+	
+	//precice.writeBlockScalarData(flowdID, vertexSize, vertexIDs, alphaw);
 	// End H to alpha conversion and updating BC alphaw
 	
 	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
-	Info<< "new aplhaw = " << alphaw[5] << endl;
+	Info<< "new aplhaw = " << alphaw[1] << endl;
 
 
 	// H to Prgh conversion and updating BC Prgh
-	for ( int i = 0; i<vertexSize ; i++ )	
+	for ( int i = 0; i < nFaces + 1 ; i++ )	
 	{
 	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
 	}
@@ -274,122 +275,60 @@ if (1==0){
 	Info<< "new prgh = " << prgh[1] << endl;
 
 
-
-	// H and HU to U conversion and updating BC U 
+	// H and HU to U conversion and updating BC U
+	double* dy = new double[3];
 	double mu = nu3D * rhow3D;
-	double Beta[dim] = {};
-	double U2D[dim] = {};
-	double dy[vertexSize] = {};
-	double DU[vertexSize*dim] = {};
-	double Ustar[vertexSize*dim] = {};
-	double tau[vertexSize*dim] = {};
-	double q3D[dim] = {};
-	double Umax[dim] = {};
+	double* DU = new double[vertexSize*dim];
+	double* U2D = new double[3];
+	double* tau = new double[vertexSize*dim];
 
-	for ( int j = 0; j<dim ; j++ )			// Set initial values
+	for ( int i = 0; i == 2 ; i++ )
 	{
-	    U2D[j] = U.boundaryField()[0][0].component(j);
+	    U2D[i] = U.boundaryField()[0][0].component(i);
 	}
 
-	for ( int i = 0; i<vertexSize ; i++ )		// Calculate velocity profile
+	for ( int i = 0; i < nFaces + 1 ; i++ )	
 	{
-	    if ( coords[1+3*i] == 0 )
+	    if (i == 0)
 	    {
-		dy[i] = 0;
-		for ( int j = 0; j<dim ; j++ )	// For y = 0
+		dy[i] = 0.000001;
+		for ( int j = 0; i == 2 ; i++ )
 		{
-		    DU[j+3*i] = 0;
-		    tau[j+3*i] = 1e6;
-		    Ustar[j+3*i] = std::pow((tau[j+3*i]/rhow3D),0.5);
-	  	    velocity[j+3*i] = 0;
-		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
+		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
+		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
+	  	    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
 		}
 	    }
 	    else
 	    {
 		dy[i] = coords[1+3*i] - coords[1+3*(i-1)];
-		for ( int j = 0; j<dim ; j++ )	// For y > 0
+		for ( int j = 0; i == 2 ; i++ )
 		{
 		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = abs(mu * DU[j+3*i] / faceHeight);
-		    Ustar[j+3*i] = std::sqrt(tau[j+3*i] / rhow3D);
-		    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));
-		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
+		    tau[j+3*i] = mu * DU[j+3*i] / dy[i];
+		    velocity[j+3*i] = U2D[j] + std::sqrt(tau[j+3*i]/rhow3D)/0.41 * (1+std::log((coords[1+3*i]-zb)/h));
 		}
 	    }
 	} 
- 
-	for ( int j = 0; j<dim ; j++ )			// Calculate scaled profile
-	{
-	    if ( q3D[j] != 0 ) 
-	    {
-		Beta[j] = HU.boundaryField()[0][0].component(j) / q3D[j];
-
-		while ( Beta[j] > 1) // Should also include Beta[j] < 1
-		{
-		    q3D[j] = {};		
-
-		    for ( int i = 0; i<vertexSize ; i++ )
-		    {
-			velocity[j+3*i] = velocity[j+3*i] * Beta[j];
-			q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
-		    }
-
-	    	    Beta[j] = HU.boundaryField()[0][0].component(j) / q3D[j]; 
-		}
-	    }
-	}
-
-	for ( int j = 0; j<dim ; j++ )
-	{
-	    for ( int i = 0; i<vertexSize ; i++ )	// Calculate highest velocity
-	    {
-		if ( Umax[j] < alphaw[i] * velocity[j+3*i] )
-		{
-		    Umax[j] = alphaw[i] * velocity[j+3*i];
-		}
-	    }
-
-	    for ( int i = 0; i<vertexSize ; i++ )	// Set air to highest velocity
-	    {
-		if ( alphaw[i] < 0.01 )
-		{
-		    velocity[j+3*i] = Umax[j];
-		}
-	    }
-	}
 	// End H and HU to U conversion and updating BC U
-	Info<< "velocity = " << velocity[3] << endl;
-	Info<< "q3D0 = " << q3D[0] << endl;
-	Info<< "Beta = " << Beta[0] << endl;
-	Info<< "HU bound0 = " << HU.boundaryField()[0][0].component(0) << endl;
-	Info<< "Ustar = " << Ustar[3] << endl;
-}
 
-	for ( int i = 0; i<vertexSize ; i++ )
-	{
-	    alphaw[i] = 1;
-	    if (alphaw[i] > 0)
-	    {
-		velocity[0+3*i] = -1;
-		velocity[1+3*i] = 0;
-		velocity[2+3*i] = 0;
-	    }	
-	}
+	Info<< "new U = " << velocity[1] << nl << endl;
 
-
-	// Data writing
-	precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
-	precice.writeBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
-	// End Data writing
-
-      } // End if
 
 	precice_dt = precice.advance(dt);
-	runTime.setDeltaT(dt);
+	
+	if(precice.isActionRequired(coric))	// timestep not converged
+	{ 
+	    // load initial data
+	    alphaw = alphawcheck;
+	    H.boundaryFieldRef()[0][0] = Hcheck;
+	    precice.markActionFulfilled(coric);
+	}
+	else{ 
+	    runTime.setDeltaT(dt);
+            runTime.write();
+	}
 
-        runTime.write();
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
             << "  ClockTime = " << runTime.elapsedClockTime() << " s"
@@ -398,8 +337,8 @@ if (1==0){
 
     Info<< "End\n" << endl;
 
-    precice.finalize(); // frees data structures and closes communication channels
-// Ending Time Loop
+    precice.finalize(); 			// Frees data structures and closes communication channels
+
 
 
     return(0);
