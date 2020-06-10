@@ -27,7 +27,6 @@ interfaces
     writeData
     (
       Alpha
-      Prgh
       Velocity
     );
   };
