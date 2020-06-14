@@ -1,0 +1,64 @@
+<?xml version="1.0"?>
+
+<precice-configuration>
+
+    <solver-interface dimensions="3">
+
+    <data:scalar name="Alpha"/>
+    <data:vector name="Velocity"/>
+
+    <mesh name="left-Mesh"> 
+        <use-data name="Alpha"/>   
+        <use-data name="Velocity"/>   
+    </mesh>
+
+    <mesh name="right-Mesh">  
+        <use-data name="Alpha"/>   
+        <use-data name="Velocity"/>   
+    </mesh>
+
+    <participant name="leftIF">
+        <use-mesh name="left-Mesh" provide="yes"/>
+        <use-mesh name="right-Mesh" from="rightSF"/>
+        <write-data name="Alpha" mesh="left-Mesh"/>
+        <write-data name="Velocity" mesh="left-Mesh"/>
+        <read-data name="Alpha" mesh="left-Mesh"/>
+        <read-data name="Velocity" mesh="left-Mesh"/>
+	<mapping:nearest-neighbor direction="write" from="left-Mesh" to="right-Mesh" 		constraint="consistent" />
+    </participant>
+
+    <participant name="rightSF">
+        <use-mesh name="right-Mesh" provide="yes"/>
+        <use-mesh name="left-Mesh" from="leftIF"/>
+        <read-data name="Alpha" mesh="right-Mesh"/>
+        <read-data name="Velocity" mesh="right-Mesh"/>
+        <write-data name="Alpha" mesh="right-Mesh"/>
+        <write-data name="Velocity" mesh="right-Mesh"/>
+    </participant>
+
+    <m2n:sockets from="leftIF" to="rightSF" exchange-directory=".." />
+
+    <coupling-scheme:parallel-implicit>
+        <time-window-size value="0.05"/>
+        <max-time value="2.0"/>
+        <participants first="leftIF" second="rightSF"/>
+        <exchange data="Alpha" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+        <exchange data="Velocity" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+        <exchange data="Alpha" mesh="right-Mesh" from="rightSF" to="leftIF"/>
+        <exchange data="Velocity" mesh="right-Mesh" from="rightSF" to="leftIF"/>
+
+	<max-iterations value="100"/>
+        <relative-convergence-measure limit="1.0e-6" data="Alpha" mesh="leftIF"/>
+        <relative-convergence-measure limit="1.0e-6" data="Velocity" mesh="leftIF"/>
+
+	<acceleration:IQN-ILS>
+            <data mesh="right-Mesh" name="Alpha" />
+            <initial-relaxation value="0.01" />
+            <max-used-iterations value="80" />
+            <time-windows-reused value="10" />
+            <filter type="QR1" limit="1e-8" />
+        </acceleration:IQN-ILS>
+    </coupling-scheme:parallel-implicit>
+
+    </solver-interface>
+</precice-configuration>

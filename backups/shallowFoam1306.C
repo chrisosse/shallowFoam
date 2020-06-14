@@ -177,7 +177,6 @@ double precice_dt; 	// maximum precice timestep size
 	}
 	// End writing checkpoint data
 
-	precice.initializeData();
 
       if ( coupled && (unidirec_iFsF || bidirec) )	// If coupled and unidirecIFSF or bidirec
       {
