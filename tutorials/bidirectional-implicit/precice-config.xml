@@ -6,15 +6,21 @@
 
     <data:scalar name="Alpha"/>
     <data:vector name="Velocity"/>
+    <data:vector name="VelocityGradient"/>
+    <data:vector name="Prgh"/>
 
     <mesh name="left-Mesh"> 
         <use-data name="Alpha"/>   
-        <use-data name="Velocity"/>   
+        <use-data name="Velocity"/> 
+        <use-data name="VelocityGradient"/>   
+        <use-data name="Prgh"/>   
     </mesh>
 
     <mesh name="right-Mesh">  
         <use-data name="Alpha"/>   
         <use-data name="Velocity"/>   
+        <use-data name="VelocityGradient"/>
+        <use-data name="Prgh"/>   
     </mesh>
 
     <participant name="leftIF">
@@ -22,8 +28,8 @@
         <use-mesh name="right-Mesh" from="rightSF"/>
         <write-data name="Alpha" mesh="left-Mesh"/>
         <write-data name="Velocity" mesh="left-Mesh"/>
-        <read-data name="Alpha" mesh="left-Mesh"/>
-        <read-data name="Velocity" mesh="left-Mesh"/>
+	<read-data name="VelocityGradient" mesh="left-Mesh"/>
+	<!--<read-data name="Prgh" mesh="left-Mesh"/>-->
 	<mapping:nearest-neighbor direction="write" from="left-Mesh" to="right-Mesh" 		constraint="consistent" />
     </participant>
 
@@ -32,33 +38,24 @@
         <use-mesh name="left-Mesh" from="leftIF"/>
         <read-data name="Alpha" mesh="right-Mesh"/>
         <read-data name="Velocity" mesh="right-Mesh"/>
-        <write-data name="Alpha" mesh="right-Mesh"/>
-        <write-data name="Velocity" mesh="right-Mesh"/>
+        <write-data name="VelocityGradient" mesh="right-Mesh"/>
+        <!--<write-data name="Prgh" mesh="right-Mesh"/>-->
+	<mapping:nearest-neighbor direction="write" from="right-Mesh" to="left-Mesh" 		constraint="consistent" />
     </participant>
 
     <m2n:sockets from="leftIF" to="rightSF" exchange-directory=".." />
-
-    <coupling-scheme:parallel-implicit>
-        <time-window-size value="0.05"/>
+S
+    <coupling-scheme:parallel-explicit>
+        <time-window-size value="0.005"/>
         <max-time value="2.0"/>
         <participants first="leftIF" second="rightSF"/>
         <exchange data="Alpha" mesh="right-Mesh" from="leftIF" to="rightSF"/>
         <exchange data="Velocity" mesh="right-Mesh" from="leftIF" to="rightSF"/>
-        <exchange data="Alpha" mesh="right-Mesh" from="rightSF" to="leftIF"/>
-        <exchange data="Velocity" mesh="right-Mesh" from="rightSF" to="leftIF"/>
+        <exchange data="VelocityGradient" mesh="left-Mesh" from="rightSF" to="leftIF"/>
+	<!--<exchange data="Prgh" mesh="left-Mesh" from="rightSF" to="leftIF"/>-->
 
-	<max-iterations value="100"/>
-        <relative-convergence-measure limit="1.0e-6" data="Alpha" mesh="leftIF"/>
-        <relative-convergence-measure limit="1.0e-6" data="Velocity" mesh="leftIF"/>
 
-	<acceleration:IQN-ILS>
-            <data mesh="right-Mesh" name="Alpha" />
-            <initial-relaxation value="0.01" />
-            <max-used-iterations value="80" />
-            <time-windows-reused value="10" />
-            <filter type="QR1" limit="1e-8" />
-        </acceleration:IQN-ILS>
-    </coupling-scheme:parallel-implicit>
+    </coupling-scheme:parallel-explicit>
 
     </solver-interface>
 </precice-configuration>

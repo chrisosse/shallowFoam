@@ -28,8 +28,7 @@ interfaces
     
     writeData
     (
-      Alpha
-      Velocity
+      VelocityGradient
     );
   };
 };

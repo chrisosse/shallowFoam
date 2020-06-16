@@ -185,6 +185,9 @@ double precice_dt; 	// maximum precice timestep size
 	// Data reading
 	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
 	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
+	//precice.readBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
+	Info<< "alpha = " << alphaw[0] << endl;
+	Info<< "velocity = " << velocity[0] << endl;
 	// End Data reading
 
 	// Alpha to H conversion and updating BC H
@@ -278,7 +281,7 @@ double precice_dt; 	// maximum precice timestep size
 ///////////////////////////////////////////////////////////////////////////////
 
 
-      if ( 1==1)//coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
+      if ( coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
       {
 	
 
@@ -411,33 +414,10 @@ double precice_dt; 	// maximum precice timestep size
 	Info<< "Ustar = " << Ustar[3] << endl;
 
 
-	// U to Ugrad conversion and updating BC Ugrad 
-	vectorField Ugrad = U.boundaryField()[0].snGrad();
-
-	for ( int i = 0; i<vertexSize ; i++ )
-	{
-	    for ( int j = 0; j<dim ; j++ )
-	    {
-		if ( j == 0 )
-		{
-		    velocitygradient[j+3*i] = Ugrad[0].component(j);
-		}
-		else
-		{
-		    velocitygradient[j+3*i] = 0;
-		}
-	    }
-	}
-	// End U to Ugrad conversion and updating BC Ugrad
-	
-	Info<< "Ugrad = " << U.boundaryField()[0].snGrad() << endl;
-
-
-
 	// Data writing
 	//precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	//precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
-	precice.writeBlockVectorData(velgrID, vertexSize, vertexIDs, velocitygradient);
+	precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
+	precice.readBlockVectorData(velgrID, vertexSize, vertexIDs, velocitygradient);
 	//precice.writeBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
 	// End Data writing
 
@@ -476,6 +456,9 @@ double precice_dt; 	// maximum precice timestep size
 	    runTime.setDeltaT(dt);
             runTime.write();
 	}
+
+
+Info<< "internalField = " << H.internalField() << endl;
 
 
         Info<< "ExecutionTime = " << runTime.elapsedCpuTime() << " s"
