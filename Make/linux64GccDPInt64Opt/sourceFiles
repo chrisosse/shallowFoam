@@ -1,0 +1,8 @@
+SOURCE = \
+shallowFoam.C \
+derivedFvPatchFields/criticalFlowDepthInlet/criticalFlowDepthInletFvPatchScalarField.C \
+derivedFvPatchFields/energyHeadInlet/energyHeadInletFvPatchVectorField.C \
+derivedFvPatchFields/dischargeFlowDepthOutlet/dischargeFlowDepthOutletFvPatchVectorField.C \
+derivedFvPatchFields/flowRateInlet/flowRateInletFvPatchVectorField.C \
+derivedFvPatchFields/timeVaryingFlowRateInlet/timeVaryingFlowRateInletFvPatchVectorField.C \
+derivedFvPatchFields/fixedAbsoluteWaterLevel/fixedAbsoluteWaterLevelFvPatchScalarField.C 

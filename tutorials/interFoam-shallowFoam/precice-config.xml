@@ -4,26 +4,20 @@
 
     <solver-interface dimensions="3">
 
-    <data:scalar name="FlowDepth"/>
-    <data:vector name="Discharge"/>
     <data:scalar name="Alpha"/>
     <data:vector name="Velocity"/>
-    <data:scalar name="Prgh"/>
+    <!--<data:scalar name="Prgh"/>-->
 
-    <mesh name="left-Mesh">
-        <use-data name="FlowDepth"/>   
-        <use-data name="Discharge"/>   
+    <mesh name="left-Mesh">  
         <use-data name="Alpha"/>   
         <use-data name="Velocity"/>   
-        <use-data name="Prgh"/>   
+        <!--<use-data name="Prgh"/>-->   
     </mesh>
 
     <mesh name="right-Mesh">
-        <use-data name="FlowDepth"/>   
-        <use-data name="Discharge"/>   
         <use-data name="Alpha"/>   
         <use-data name="Velocity"/>   
-        <use-data name="Prgh"/> 
+        <!--<use-data name="Prgh"/>--> 
     </mesh>
 
     <participant name="leftIF">
@@ -31,7 +25,7 @@
         <use-mesh name="right-Mesh" from="rightSF"/>
         <write-data name="Alpha" mesh="left-Mesh"/>
         <write-data name="Velocity" mesh="left-Mesh"/>
-        <write-data name="Prgh" mesh="left-Mesh"/>
+        <!--<write-data name="Prgh" mesh="left-Mesh"/>-->
 	<mapping:nearest-neighbor direction="write" from="left-Mesh" to="right-Mesh" 		constraint="consistent" />
     </participant>
 
@@ -40,7 +34,7 @@
         <use-mesh name="left-Mesh" from="leftIF"/>
         <read-data name="Alpha" mesh="right-Mesh"/>
         <read-data name="Velocity" mesh="right-Mesh"/>
-        <read-data name="Prgh" mesh="right-Mesh"/>
+        <!--<read-data name="Prgh" mesh="right-Mesh"/>-->
     </participant>
 
     <m2n:sockets from="leftIF" to="rightSF" exchange-directory=".." />
@@ -51,7 +45,7 @@
         <participants first="leftIF" second="rightSF"/>
         <exchange data="Alpha" mesh="right-Mesh" from="leftIF" to="rightSF"/>
         <exchange data="Velocity" mesh="right-Mesh" from="leftIF" to="rightSF"/>
-        <exchange data="Prgh" mesh="right-Mesh" from="leftIF" to="rightSF"/>
+        <!--<exchange data="Prgh" mesh="right-Mesh" from="leftIF" to="rightSF"/>-->
     </coupling-scheme:serial-explicit>
 
     </solver-interface>

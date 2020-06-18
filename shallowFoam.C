@@ -59,8 +59,8 @@ int main(int argc, char *argv[])
 
 // Set coupling scheme type
 bool coupled = true;
-bool unidirec_iFsF = true;
-bool unidirec_sFiF = false;
+bool unidirec_iFsF = false;
+bool unidirec_sFiF = true;
 bool bidirec = false;
 
 // This should be changed accordingly
@@ -113,10 +113,22 @@ for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interfa
 int* vertexIDs = new int[vertexSize];
 precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
 
-int alphaID = precice.getDataID("Alpha", meshID); 
-int velocID = precice.getDataID("Velocity", meshID);
-int velgrID = precice.getDataID("VelocityGradient", meshID);  
-int prghID = 3;//precice.getDataID("Prgh", meshID);
+int alphaID;
+int velocID;
+int velgrID;
+int prghID;
+
+if ( coupled && (unidirec_iFsF || unidirec_sFiF || bidirec) )	
+{
+    alphaID = precice.getDataID("Alpha", meshID); 
+    velocID = precice.getDataID("Velocity", meshID);
+}
+
+if ( coupled && bidirec )
+{
+    velgrID = precice.getDataID("VelocityGradient", meshID);
+    //prghID = precice.getDataID("Prgh", meshID);
+}
 
 double* alphaw = new double[vertexSize];
 double* velocity = new double[vertexSize*dim];
@@ -225,8 +237,11 @@ double precice_dt; 	// maximum precice timestep size
 
 
         #include "setDeltaT.H"
+	Info<< "dt = " << dt << endl;
 	dt = runTime.deltaTValue();
+
 	dt = min(precice_dt, dt);
+	//runTime.setDeltaT(dt);
         runTime++;
 
         Info<< "Time = " << runTime.timeName() << nl << endl;
@@ -278,13 +293,12 @@ double precice_dt; 	// maximum precice timestep size
 ///////////////////////////////////////////////////////////////////////////////
 
 
-      if ( 1==1)//coupled && (unidirec_sFiF || bidirec) )	// If coupled and unidirecSFIF or bidirec
-      {
-	
-
 	double h = H.boundaryField()[0][0];		// Flow depth on 2D boundary
 	double zb = S.boundaryField()[0][0];		// Bottom elevation on 2D boundary
 	double zw = zb + h;				// Water surface height on 2D boundary
+
+      if ( coupled && unidirec_sFiF )	// If coupled and unidirecSFIF
+      {
 
 	// H to alpha conversion and updating BC alphaw
 	for ( int i = 0; i<vertexSize ; i++ )			
@@ -306,17 +320,6 @@ double precice_dt; 	// maximum precice timestep size
 	
 	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
 	Info<< "new aplhaw = " << alphaw[5] << endl;
-
-
-	// H to Prgh conversion and updating BC Prgh
-	for ( int i = 0; i<vertexSize ; i++ )	
-	{
-	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
-	}
-	// End H to Prgh conversion and updating BC Prgh
-
-	Info<< "new prgh = " << prgh[1] << endl;
-
 
 
 	// H and HU to U conversion and updating BC U 
@@ -411,6 +414,26 @@ double precice_dt; 	// maximum precice timestep size
 	Info<< "Ustar = " << Ustar[3] << endl;
 
 
+	// Data writing
+	precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
+	precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
+	// End Data writing
+
+      } // End if
+
+
+      if ( coupled && bidirec )	// If coupled and bidirectional
+      {
+	// H to Prgh conversion and updating BC Prgh
+	for ( int i = 0; i<vertexSize ; i++ )	
+	{
+	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
+	}
+	// End H to Prgh conversion and updating BC Prgh
+
+	Info<< "new prgh = " << prgh[1] << endl;
+
+
 	// U to Ugrad conversion and updating BC Ugrad 
 	vectorField Ugrad = U.boundaryField()[0].snGrad();
 
@@ -418,14 +441,14 @@ double precice_dt; 	// maximum precice timestep size
 	{
 	    for ( int j = 0; j<dim ; j++ )
 	    {
-		if ( j == 0 )
-		{
-		    velocitygradient[j+3*i] = Ugrad[0].component(j);
-		}
-		else
-		{
-		    velocitygradient[j+3*i] = 0;
-		}
+//		if ( j == 0 )
+//		{
+		    velocitygradient[j+3*i] = alphaw[i] * Ugrad[0].component(j);
+//		}
+//		else
+//		{
+//		    velocitygradient[j+3*i] = 0;
+//		}
 	    }
 	}
 	// End U to Ugrad conversion and updating BC Ugrad
@@ -433,10 +456,7 @@ double precice_dt; 	// maximum precice timestep size
 	Info<< "Ugrad = " << U.boundaryField()[0].snGrad() << endl;
 
 
-
 	// Data writing
-	//precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	//precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
 	precice.writeBlockVectorData(velgrID, vertexSize, vertexIDs, velocitygradient);
 	//precice.writeBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
 	// End Data writing
@@ -473,7 +493,7 @@ double precice_dt; 	// maximum precice timestep size
 	}
 	else
 	{ 
-	    runTime.setDeltaT(dt);
+	    //runTime.setDeltaT(dt);
             runTime.write();
 	}
 
