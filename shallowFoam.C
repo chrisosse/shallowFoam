@@ -60,8 +60,8 @@ int main(int argc, char *argv[])
 // Set coupling scheme type
 bool coupled = true;
 bool unidirec_iFsF = false;
-bool unidirec_sFiF = true;
-bool bidirec = false;
+bool unidirec_sFiF = false;
+bool bidirec = true;
 
 // This should be changed accordingly
 char solverName[] = "rightSF";
