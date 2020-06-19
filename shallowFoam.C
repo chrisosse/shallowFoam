@@ -71,7 +71,6 @@ int size = 1;
 double meshHeight = 4;
 char meshName[] = "right-Mesh";
 int nFaces = 40;
-int nVertex = 2 * nFaces + 2;
 double faceHeight = (meshHeight / nFaces);
 double rhow3D = 1000;	// Same as fluid density in other solver
 double rhoa3D = 1;	// Same as air density in other solver
@@ -91,27 +90,17 @@ int dim = precice.getDimensions();
 
 // Make data structures for coupling shallowFoam
 int meshID = precice.getMeshID(meshName);
-int vertexSize = nVertex;				// Set number of vertices at wet surface
-double* coords = new double[vertexSize*dim]; 
+double* coords = new double[nFaces*dim]; 
 
-for ( int i = 0; i<vertexSize ; i++ )			// Hardcoding coords of coupling interface
+for ( int i = 0; i<nFaces ; i++ )			// Hardcoding coords of coupling interface
 {
-    if ( i < vertexSize / 2 )
-    {
-	coords[0+3*i] = 4.0; 		// x
-	coords[1+3*i] = 0.0+0.1*i; 	// y
-	coords[2+3*i] = 0.0; 		// z
-    }
-    else
-    {
-	coords[0+3*i] = 4.0; 		// x
-	coords[1+3*i] = 0.0+0.1*i; 	// y
-	coords[2+3*i] = 1.0; 		// z
-    }
+    coords[0+3*i] = 4.0; 		// x
+    coords[1+3*i] = 0.05+0.1*i; 	// y
+    coords[2+3*i] = 0.5; 		// z
 }
 
-int* vertexIDs = new int[vertexSize];
-precice.setMeshVertices(meshID, vertexSize, coords, vertexIDs); 
+int* vertexIDs = new int[nFaces];
+precice.setMeshVertices(meshID, nFaces, coords, vertexIDs); 
 
 int alphaID;
 int velocID;
@@ -126,14 +115,14 @@ if ( coupled && (unidirec_iFsF || unidirec_sFiF || bidirec) )
 
 if ( coupled && bidirec )
 {
-    velgrID = precice.getDataID("VelocityGradient", meshID);
-    //prghID = precice.getDataID("Prgh", meshID);
+    //velgrID = precice.getDataID("VelocityGradient", meshID);
+    prghID = precice.getDataID("Prgh", meshID);
 }
 
-double* alphaw = new double[vertexSize];
-double* velocity = new double[vertexSize*dim];
-double* velocitygradient = new double[vertexSize*dim];
-double* prgh = new double[vertexSize];
+double* alphaw = new double[nFaces];
+double* velocity = new double[nFaces*dim];
+double* velocitygradient = new double[nFaces*dim];
+double* prgh = new double[nFaces];
 // End make data structures for coupling shallowFoam
 
 // Make data structures for checkpoints
@@ -195,39 +184,42 @@ double precice_dt; 	// maximum precice timestep size
       if ( coupled && (unidirec_iFsF || bidirec) )	// If coupled and unidirecIFSF or bidirec
       {
 	// Data reading
-	precice.readBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	precice.readBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
+	precice.readBlockScalarData(alphaID, nFaces, vertexIDs, alphaw);
+	precice.readBlockVectorData(velocID, nFaces, vertexIDs, velocity);
 	// End Data reading
+
 
 	// Alpha to H conversion and updating BC H
 	double H_BC = 0;
-	for ( int i = 1; i < nFaces + 1 ; i++ )				// For vertices above groud level
+	for ( int i = 0; i < nFaces + 1 ; i++ )				
 	{
-	    H_BC += alphaw[i] * faceHeight;				// H = sum(alpha * faceheight)
+	    H_BC += alphaw[i] * faceHeight;		// H = sum(alpha * faceheight)
 	}
 
-	H.boundaryFieldRef()[0][0] = H_BC;				// Set boundary condition H
+	H.boundaryFieldRef()[0][0] = H_BC;		// Set boundary condition H
 	// End Alpha to H conversion and updating BC H
 
 	Info<< "H_bound = " << H.boundaryField()[0][0] << endl;
+
+
 
 	// U to HU conversion and updating BC HU
 	double HUx_BC = 0;
 	double HUy_BC = 0;
 	double HUz_BC = 0;
-	for ( int i = 0; i < nFaces + 1 ; i++ )				// For all vertices 
+	for ( int i = 0; i < nFaces ; i++ ) 
 	{
-	    if ( alphaw[i] > 0 )
+	    if ( alphaw[i] > 0.01 )
 	    {
-		HUx_BC += alphaw[i] * velocity[0+i*3] / (nFaces+1);	// HUx = mean(alpha * Ux)
-		HUy_BC += alphaw[i] * velocity[1+i*3] / (nFaces+1);	// HUy = mean(alpha * Uy)
-		HUz_BC += alphaw[i] * velocity[2+i*3] / (nFaces+1);	// HUz = mean(alpha * Uz)
+		HUx_BC += alphaw[i] * velocity[0+i*3] * faceHeight;	// HUx = mean(alpha * Ux)
+		HUy_BC += alphaw[i] * velocity[1+i*3] * faceHeight;	// HUy = mean(alpha * Uy)
+		HUz_BC += alphaw[i] * velocity[2+i*3] * faceHeight;	// HUz = mean(alpha * Uz)
 	    }
 	}
 
-        HU.boundaryFieldRef()[0][0].component(0) = HUx_BC;		// Set boundary condition HUx
-        HU.boundaryFieldRef()[0][0].component(1) = HUy_BC;		// Set boundary condition HUy
-        HU.boundaryFieldRef()[0][0].component(2) = HUz_BC;		// Set boundary condition HUz
+        HU.boundaryFieldRef()[0][0].component(0) = HUx_BC;
+        HU.boundaryFieldRef()[0][0].component(1) = HUy_BC;
+        HU.boundaryFieldRef()[0][0].component(2) = HUz_BC;
 	// End U to HU conversion and updating BC HU
 
 	Info<< "HUx_BC = " << HUx_BC << endl;
@@ -301,7 +293,7 @@ double precice_dt; 	// maximum precice timestep size
       {
 
 	// H to alpha conversion and updating BC alphaw
-	for ( int i = 0; i<vertexSize ; i++ )			
+	for ( int i = 0; i<nFaces ; i++ )			
 	{
 	    if ( zw < coords[1+3*i] - 0.5 * (meshHeight / nFaces))		// For H <
 	    {
@@ -326,10 +318,10 @@ double precice_dt; 	// maximum precice timestep size
 	double mu = nu3D * rhow3D;
 	double Beta[dim] = {};
 	double U2D[dim] = {};
-	double dy[vertexSize] = {};
-	double DU[vertexSize*dim] = {};
-	double Ustar[vertexSize*dim] = {};
-	double tau[vertexSize*dim] = {};
+	double dy[nFaces] = {};
+	double DU[nFaces*dim] = {};
+	double Ustar[nFaces*dim] = {};
+	double tau[nFaces*dim] = {};
 	double q3D[dim] = {};
 	double Umax[dim] = {};
 
@@ -338,9 +330,9 @@ double precice_dt; 	// maximum precice timestep size
 	    U2D[j] = U.boundaryField()[0][0].component(j);
 	}
 
-	for ( int i = 0; i<vertexSize ; i++ )		// Calculate velocity profile
+	for ( int i = 0; i<nFaces ; i++ )		// Calculate velocity profile
 	{
-	    if ( coords[1+3*i] == 0 || h == 0)
+	    if ( h == 0 )
 	    {
 		dy[i] = 0;
 		for ( int j = 0; j<dim ; j++ )	// For y = 0
@@ -352,13 +344,25 @@ double precice_dt; 	// maximum precice timestep size
 		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
 		}
 	    }
+	    else if ( coords[1+3*i] == 0.05 )
+	    {
+		dy[i] = 0.5;
+		for ( int j = 0; j<dim ; j++ )	// For y = 0
+		{
+		    DU[j+3*i] = velocity[j+3*i] - 0;
+		    tau[j+3*i] = abs(mu * DU[j+3*i] / dy[i]);
+		    Ustar[j+3*i] = std::pow((tau[j+3*i]/rhow3D),0.5);
+	  	    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));;
+		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
+		}
+	    }
 	    else
 	    {
 		dy[i] = coords[1+3*i] - coords[1+3*(i-1)];
 		for ( int j = 0; j<dim ; j++ )	// For y > 0
 		{
 		    DU[j+3*i] = velocity[j+3*i] - velocity[j+3*(i-1)];
-		    tau[j+3*i] = abs(mu * DU[j+3*i] / faceHeight);
+		    tau[j+3*i] = abs(mu * DU[j+3*i] / dy[i]);
 		    Ustar[j+3*i] = std::sqrt(tau[j+3*i] / rhow3D);
 		    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));
 		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
@@ -376,7 +380,7 @@ double precice_dt; 	// maximum precice timestep size
 		{
 		    q3D[j] = {};		
 
-		    for ( int i = 0; i<vertexSize ; i++ )
+		    for ( int i = 0; i<nFaces ; i++ )
 		    {
 			velocity[j+3*i] = velocity[j+3*i] * Beta[j];
 			q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
@@ -389,7 +393,7 @@ double precice_dt; 	// maximum precice timestep size
 
 	for ( int j = 0; j<dim ; j++ )
 	{
-	    for ( int i = 0; i<vertexSize ; i++ )	// Calculate highest velocity
+	    for ( int i = 0; i<nFaces ; i++ )	// Calculate highest velocity
 	    {
 		if ( Umax[j] < alphaw[i] * velocity[j+3*i] )
 		{
@@ -397,7 +401,7 @@ double precice_dt; 	// maximum precice timestep size
 		}
 	    }
 
-	    for ( int i = 0; i<vertexSize ; i++ )	// Set air to highest velocity
+	    for ( int i = 0; i<nFaces ; i++ )		// Set air to highest velocity
 	    {
 		if ( alphaw[i] < 0.01 )
 		{
@@ -415,8 +419,8 @@ double precice_dt; 	// maximum precice timestep size
 
 
 	// Data writing
-	precice.writeBlockScalarData(alphaID, vertexSize, vertexIDs, alphaw);
-	precice.writeBlockVectorData(velocID, vertexSize, vertexIDs, velocity);
+	precice.writeBlockScalarData(alphaID, nFaces, vertexIDs, alphaw);
+	precice.writeBlockVectorData(velocID, nFaces, vertexIDs, velocity);
 	// End Data writing
 
       } // End if
@@ -425,7 +429,7 @@ double precice_dt; 	// maximum precice timestep size
       if ( coupled && bidirec )	// If coupled and bidirectional
       {
 	// H to Prgh conversion and updating BC Prgh
-	for ( int i = 0; i<vertexSize ; i++ )	
+	for ( int i = 0; i<nFaces ; i++ )	
 	{
 	    prgh[i] = (alphaw[i] * rhow3D + (1 - alphaw[i]) * rhoa3D) * g3D * zw;
 	}
@@ -437,18 +441,11 @@ double precice_dt; 	// maximum precice timestep size
 	// U to Ugrad conversion and updating BC Ugrad 
 	vectorField Ugrad = U.boundaryField()[0].snGrad();
 
-	for ( int i = 0; i<vertexSize ; i++ )
+	for ( int i = 0; i<nFaces ; i++ )
 	{
 	    for ( int j = 0; j<dim ; j++ )
 	    {
-//		if ( j == 0 )
-//		{
-		    velocitygradient[j+3*i] = alphaw[i] * Ugrad[0].component(j);
-//		}
-//		else
-//		{
-//		    velocitygradient[j+3*i] = 0;
-//		}
+		velocitygradient[j+3*i] = alphaw[i] * Ugrad[0].component(j);
 	    }
 	}
 	// End U to Ugrad conversion and updating BC Ugrad
@@ -457,8 +454,8 @@ double precice_dt; 	// maximum precice timestep size
 
 
 	// Data writing
-	precice.writeBlockVectorData(velgrID, vertexSize, vertexIDs, velocitygradient);
-	//precice.writeBlockScalarData(prghID, vertexSize, vertexIDs, prgh);
+	//precice.writeBlockVectorData(velgrID, nFaces, vertexIDs, velocitygradient);
+	precice.writeBlockScalarData(prghID, nFaces, vertexIDs, prgh);
 	// End Data writing
 
       } // End if
@@ -490,6 +487,7 @@ double precice_dt; 	// maximum precice timestep size
 
 	    HBoundcheck = H.boundaryField()[0][0];
 
+	    precice.markActionFulfilled(coric);
 	}
 	else
 	{ 
