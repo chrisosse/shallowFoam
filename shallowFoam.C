@@ -191,7 +191,7 @@ double precice_dt; 	// maximum precice timestep size
 
 	// Alpha to H conversion and updating BC H
 	double H_BC = 0;
-	for ( int i = 0; i < nFaces + 1 ; i++ )				
+	for ( int i = 0; i < nFaces ; i++ )				
 	{
 	    H_BC += alphaw[i] * faceHeight;		// H = sum(alpha * faceheight)
 	}
