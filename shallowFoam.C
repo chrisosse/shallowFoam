@@ -352,7 +352,7 @@ double precice_dt; 	// maximum precice timestep size
 		    DU[j+3*i] = velocity[j+3*i] - 0;
 		    tau[j+3*i] = abs(mu * DU[j+3*i] / dy[i]);
 		    Ustar[j+3*i] = std::pow((tau[j+3*i]/rhow3D),0.5);
-	  	    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));;
+	  	    velocity[j+3*i] = U2D[j] + Ustar[j+3*i] / 0.41 * (1+std::log((coords[1+3*i]-zb)/h));
 		    q3D[j] += alphaw[i] * velocity[j+3*i] * faceHeight;
 		}
 	    }
